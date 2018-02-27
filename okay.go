@@ -1,98 +1,53 @@
 package okaydns
 
 import (
-	"fmt"
-	"math/rand"
-	"strings"
-	"unicode"
-
 	"github.com/miekg/dns"
 )
 
-// TODO
-type Failure interface {
-	Message() string
+// A RequestResponseValidator is a function that checks the answers returned by
+// a set of nameservers, given the original DNS request message as context.
+//
+// Every RequestResponseValidator returns a set of failures caused by individual
+// nameservers and failures caused by considering the resopnses as a group.
+type RequestResponseValidator func(*dns.Msg, map[Nameserver]*dns.Msg) (map[Nameserver][]Failure, []Failure)
+
+// A MessageValidator is a function that examines a single DNS message and
+// returns any problems it's configured to spot.
+type MessageValidator func(*dns.Msg) []Failure
+
+// A Check is a check to run. Checks are responsible for building their own
+// DNS Request from an FQDN and validating the response.
+//
+// Checks may optionally alter the list of Nameservers that the check will be
+// performed on.
+type Check struct {
+	Name                 string
+	ConfigureNameservers func(nameservers []Nameserver) []Nameserver
+	Question             func(fqdn string) *dns.Msg
+	Validators           []RequestResponseValidator
 }
 
-// TODO
-type Check func(*Resolver, string) []Failure
-
-// TODO
-type GroupCheck func([]*Resolver, string) []Failure
-
-// TODO
-func FailCheck(failures []Failure, resolver *Resolver, message string, args ...interface{}) []Failure {
-	return append(failures, &ResolverFailure{
-		Resolver: resolver,
-		Msg:      fmt.Sprintf(message, args...),
-	})
+// A CheckResult is the result of running a CheckConfig. It includes the name
+// of the check that was run, the nameservers it was run on, the complete dns
+// request and response for every nameserver.
+//
+// Failures are returned per-nameserver and also as a general, global failure.
+type CheckResult struct {
+	Name          string
+	Nameservers   []Nameserver
+	Question      *dns.Msg
+	Answers       map[Nameserver]*dns.Msg
+	Errors        map[Nameserver]error
+	Failures      map[Nameserver][]Failure
+	GroupFailures []Failure
 }
 
-// TODO
-func FailGroupCheck(failures []Failure, resolvers []*Resolver, message string, args ...interface{}) []Failure {
-	return append(failures, &GroupFailure{
-		Resolvers: resolvers,
-		Msg:       fmt.Sprintf(message, args...),
-	})
+// IsFailed returns true if the check failed in any way.
+func (c *CheckResult) IsFailed() bool {
+	return len(c.Failures) > 0 || len(c.GroupFailures) > 0
 }
 
-// CheckError adds a failure to failures if the error is non-nil.
-//
-// Returns true if the error was nil and false otherwise.
-func CheckError(failures []Failure, resolver *Resolver, err error) ([]Failure, error) {
-	if err != nil {
-		failures = append(failures, &ErrorFailure{Resolver: resolver, Err: err})
-		return failures, err
-	}
-	return failures, nil
-}
-
-// CheckResponseCode adds a failure to failures if rtype is not in allowedTypes.
-//
-// Returns true if the response code was found in allowedTypes.
-func CheckResponseCode(failures []Failure, resolver *Resolver, rtype int, allowedTypes ...int) []Failure {
-	for _, allowedType := range allowedTypes {
-		if allowedType == rtype {
-			return failures
-		}
-	}
-
-	return append(failures, &ResponseCodeFailure{
-		Resolver: resolver,
-		Code:     rtype,
-	})
-}
-
-// Randomize the case of all ASCII characters in the given string.
-//
-// See https://tools.ietf.org/html/draft-vixie-dnsext-dns0x20-00
-func RandomizeCase(s string) string {
-	s = strings.ToLower(s)
-
-	var runes []rune
-	for _, runeVal := range s {
-		if rand.Float32() > 0.5 {
-			runeVal = unicode.ToUpper(runeVal)
-		} else {
-			runeVal = unicode.ToLower(runeVal)
-		}
-		runes = append(runes, runeVal)
-	}
-	return string(runes)
-}
-
-// NonRecursiveQuestion is a util function for constructing a non-recursive
-// DNS query.
-//
-// This is equivalent to:
-//
-//   q := new(dns.Msg)
-//   q.SetQuestion(fqdn, qtype)
-//   q.RecursionDesired = false
-//
-func NonRecursiveQuestion(fqdn string, qtype uint16) *dns.Msg {
-	q := new(dns.Msg)
-	q.SetQuestion(fqdn, qtype)
-	q.RecursionDesired = false
-	return q
+// A Failure is a reason that a check fails. Failures must be printable.
+type Failure struct {
+	Message string
 }

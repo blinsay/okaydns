@@ -1,106 +1,72 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"net"
-	"strconv"
 
 	"github.com/blinsay/okaydns"
 	"github.com/miekg/dns"
 )
 
-var (
-	checkPort int  = 53
-	v6        bool = false
-)
-
-// TODO(benl): maybe check should be a type that has the name, the question to
-// send (a func(string) *dns.Msg that takes the fqdn) , and a response checking
-// func (*dns.Msg) []Failure????? that would make this all easier to test and
-// maybe also add to/format?
-
-var checks = []struct {
-	Name  string
-	Check okaydns.GroupCheck
-}{
-	{"A", checkAll(okaydns.CheckA)},
-	{"A with 0x20 Randomization", checkAll(okaydns.CheckAWithRandomization)},
-	{"Invalid types", checkAll(okaydns.CheckUnknownQuestion)},
-	{"SOA", okaydns.CheckSOA},
-}
-
 func init() {
+	// logging
 	log.SetFlags(0)
 
+	// cli flags
 	flag.Parse()
 }
 
+// TODO(benl): optionally configure the local resolver from the CLI
+// TODO(benl): non-json output
+// TODO(benl): less verbose output
+// TODO(benl): include IPv6 support
+
 func main() {
-	localResolvers, err := okaydns.ResolversFromFile("/etc/resolv.conf")
+	seedns, err := configuredNameserver("/etc/resolv.conf")
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("failed to start: %s", err)
 	}
-	if len(localResolvers) == 0 {
-		log.Fatalln("couldn't find a configured local resolver")
-	}
-	localResolver := localResolvers[0]
 
-	for _, target := range flag.Args() {
-		nameservers, err := okaydns.Nameservers(localResolver, dns.Fqdn(target), v6)
+	for _, domain := range flag.Args() {
+		fqdn := dns.Fqdn(domain)
+		nameservers, err := okaydns.AuthoritativeNameservers(fqdn, seedns, false)
 		if err != nil {
-			log.Fatalf("failed to find nameservers for %s: %s", target, err)
+			log.Printf("failed to look up authoritative nameservers for %s: %s", domain, err)
+			continue
 		}
 
-		if len(nameservers) == 0 {
-			log.Fatalf("no nameservers found for %s. is your domain an apex domain?", target)
+		var results []*okaydns.CheckResult
+		for _, check := range defaultChecks {
+			results = append(results, okaydns.DoCheck(&check, fqdn, nameservers))
 		}
 
-		resolvers := resolversForNameservers(nameservers)
-		fmt.Println("checking", target, "using the following nameservers:")
-		for _, resolver := range resolvers {
-			fmt.Println("\t", resolver.Name, resolver.Host)
-		}
-
-		for _, check := range checks {
-			fmt.Print(check.Name, "...")
-
-			failures := check.Check(resolvers, dns.Fqdn(target))
-			if len(failures) == 0 {
-				fmt.Println("ok")
-			} else {
-				fmt.Println(len(failures), "checks failed")
-				for _, failure := range failures {
-					fmt.Printf("\t%s\n", failure.Message())
-				}
+		for _, result := range results {
+			bs, err := json.MarshalIndent(asJSONOutput(result), " ", " ")
+			if err != nil {
+				panic(err)
 			}
+			log.Println(string(bs))
 		}
 	}
 }
 
-func resolversForNameservers(nameservers map[string][]net.IP) []*okaydns.Resolver {
-	var resolvers []*okaydns.Resolver
-
-	for nameserver, ips := range nameservers {
-		for _, ip := range ips {
-			resolvers = append(resolvers, &okaydns.Resolver{
-				Name: nameserver,
-				Host: ip.String(),
-				Port: strconv.Itoa(checkPort),
-			})
-		}
+// return the first nameserver listed in filename, which must be a resolv.conf(5)
+// style file.
+func configuredNameserver(filename string) (okaydns.Nameserver, error) {
+	config, err := dns.ClientConfigFromFile(filename)
+	if err != nil {
+		return okaydns.Nameserver{}, err
 	}
 
-	return resolvers
-}
-
-func checkAll(c okaydns.Check) okaydns.GroupCheck {
-	return func(resolvers []*okaydns.Resolver, fqdn string) []okaydns.Failure {
-		var failures []okaydns.Failure
-		for _, resolver := range resolvers {
-			failures = append(failures, c(resolver, fqdn)...)
-		}
-		return failures
+	if len(config.Servers) < 1 {
+		return okaydns.Nameserver{}, fmt.Errorf("no resolvers found in file: %s", filename)
 	}
+
+	configns := okaydns.Nameserver{
+		Hostname: config.Servers[0],
+		Port:     config.Port,
+	}
+	return configns, nil
 }
