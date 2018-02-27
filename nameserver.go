@@ -48,7 +48,7 @@ type Nameserver struct {
 
 // IsZero returns true if the given Nameserver is the zero-valued struct.
 func (n *Nameserver) IsZero() bool {
-	return n.Port == "" && n.Hostname != "" && n.IP != ""
+	return n.Port == "" && n.Hostname == "" && n.IP == ""
 }
 
 func (n *Nameserver) String() string {
