@@ -46,12 +46,23 @@ type Nameserver struct {
 	Port     string `json:"port"`
 }
 
+// IsZero returns true if the given Nameserver is the zero-valued struct.
+func (n *Nameserver) IsZero() bool {
+	return n.Port == "" && n.Hostname != "" && n.IP != ""
+}
+
 func (n *Nameserver) String() string {
+	if n.IsZero() {
+		return ""
+	}
 	return fmt.Sprintf("%s://%s", n.Proto, net.JoinHostPort(n.IP, n.Port))
 }
 
 // Address returns an ip:port string used to connect to this nameserver.
 func (n *Nameserver) Address() string {
+	if n.IsZero() {
+		return ""
+	}
 	return net.JoinHostPort(n.Hostname, n.Port)
 }
 
