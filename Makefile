@@ -1,7 +1,7 @@
 NAME := okdns
 PKG := github.com/blinsay/okaydns
 
-all: clean build fmt lint vet test
+all: clean deps fmt lint vet test build
 
 .PHONY: deps
 deps:
@@ -21,13 +21,13 @@ $(NAME): *.go
 .PHONY: fmt
 fmt:
 	@echo "+ $@"
-	@gofmt -s -l . | grep -v .pb.go | grep -v vendor | tee /dev/stderr
+	@gofmt -s -l . 2>&1 | grep -v .pb.go | grep -v vendor | tee /dev/stderr
 
 # golint
 .PHONY: lint
 lint:
 	@echo "+ $@"
-	@golint ./... | grep -v .pb.go | grep -v vendor | tee /dev/stderr
+	@golint ./... 2>&1 | grep -v .pb.go | grep -v vendor | tee /dev/stderr
 
 # go test
 .PHONY: test
