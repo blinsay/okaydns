@@ -39,8 +39,9 @@ func init() {
 	formatter.SetVerbose(verbose)
 }
 
+// TODO(benl): enable/disable checks with a flag. only run checks that match a pattern?
+// TODO(benl): search parent domains if there are no nameservers found for a target
 // TODO(benl): optionally configure the local resolver from the CLI
-// TODO(benl): non-json output
 // TODO(benl): include IPv6 support
 
 func main() {
@@ -54,6 +55,11 @@ func main() {
 		nameservers, err := okaydns.AuthoritativeNameservers(fqdn, seedns, false)
 		if err != nil {
 			log.Printf("failed to look up authoritative nameservers for %s: %s", domain, err)
+			continue
+		}
+
+		if len(nameservers) == 0 {
+			log.Printf("no nameservers found for %s", domain)
 			continue
 		}
 
