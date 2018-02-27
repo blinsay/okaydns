@@ -33,7 +33,7 @@ lint:
 .PHONY: test
 test:
 	@echo "+ $@"
-	@go test ./...
+	@go test -race -count=1 ./...
 
 # go vet
 .PHONY: vet
