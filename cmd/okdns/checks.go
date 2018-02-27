@@ -8,6 +8,8 @@ import (
 
 var defaultChecks = []okaydns.Check{
 	checkA,
+	checkAOverTCP,
+	checkNoCNAMEAtRoot,
 	check0x20,
 	checkUnknownQuestion,
 	checkSOA,
@@ -16,7 +18,7 @@ var defaultChecks = []okaydns.Check{
 // Checks that there is an A record and no CNAME at the given domain. This is a
 // basic sanity check.
 var checkA = okaydns.Check{
-	Name: "Has an A record",
+	Name: "A record",
 	Question: func(fqdn string) *dns.Msg {
 		return okaydns.NonRecursiveQuestion(fqdn, dns.TypeA)
 	},
@@ -25,7 +27,43 @@ var checkA = okaydns.Check{
 			okaycheck.AuthoritativeResponse,
 			okaycheck.ResponseCode(dns.RcodeSuccess),
 			okaycheck.AnswerContains(dns.TypeA),
-			okaycheck.AnswerDoesNotContain(dns.TypeCNAME),
+		),
+	},
+}
+
+// Validates that an A query succeeds over TCP. Uses the same validations as
+// the CheckA check.
+var checkAOverTCP = okaydns.Check{
+	Name: "A record (TCP)",
+	Question: func(fqdn string) *dns.Msg {
+		return okaydns.NonRecursiveQuestion(fqdn, dns.TypeA)
+	},
+	ConfigureNameservers: func(nameservers []okaydns.Nameserver) []okaydns.Nameserver {
+		tcpns := make([]okaydns.Nameserver, len(nameservers))
+		for i, ns := range nameservers {
+			tcpns[i] = ns
+			tcpns[i].Proto = okaydns.ProtoTCP
+		}
+		return tcpns
+	},
+	Validators: []okaydns.RequestResponseValidator{
+		okaycheck.EachNameserver(
+			okaycheck.AuthoritativeResponse,
+			okaycheck.ResponseCode(dns.RcodeSuccess),
+		),
+	},
+}
+
+var checkNoCNAMEAtRoot = okaydns.Check{
+	Name: "Not a CNAME",
+	Question: func(fqdn string) *dns.Msg {
+		return okaydns.NonRecursiveQuestion(fqdn, dns.TypeCNAME)
+	},
+	Validators: []okaydns.RequestResponseValidator{
+		okaycheck.EachNameserver(
+			okaycheck.AuthoritativeResponse,
+			okaycheck.ResponseCode(dns.RcodeSuccess),
+			okaycheck.AnswerIsEmpty,
 		),
 	},
 }

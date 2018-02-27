@@ -41,9 +41,9 @@ type CheckResult struct {
 	Failures    []Failure
 }
 
-// IsFailed returns true if the check failed in any way.
-func (c *CheckResult) IsFailed() bool {
-	return len(c.Failures) > 0
+// Success returns true if the check did not error or fail.
+func (c *CheckResult) Success() bool {
+	return len(c.Failures) == 0 && len(c.Errors) == 0
 }
 
 // A Failure is a reason that a check fails. They optionally include the

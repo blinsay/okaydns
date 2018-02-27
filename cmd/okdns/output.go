@@ -32,7 +32,7 @@ func (t *textFormatter) FormatHeader(fqdn string, nameservers []okaydns.Nameserv
 	fmt.Fprintf(&bs, "Running checks for %s using %d nameservers:\n", fqdn, len(nameservers))
 
 	for _, nameserver := range nameservers {
-		fmt.Fprintf(&bs, "\t%s (%s)\n", nameserver.Hostname, nameserver.String())
+		fmt.Fprintf(&bs, "\t%s (%s)\n", nameserver.Hostname, nameserver.IP)
 	}
 
 	return bs.Bytes(), nil
@@ -42,7 +42,7 @@ func (t *textFormatter) FormatCheck(cr *okaydns.CheckResult) ([]byte, error) {
 	var bs bytes.Buffer
 
 	status := t.ok("ok")
-	if cr.IsFailed() {
+	if !cr.Success() {
 		status = t.failure("failed")
 	}
 	fmt.Fprintf(&bs, "%-40s %s\n", cr.Name+":", status)
@@ -53,6 +53,10 @@ func (t *textFormatter) FormatCheck(cr *okaydns.CheckResult) ([]byte, error) {
 		} else {
 			fmt.Fprintf(&bs, "\t%s (%s): %s\n", failure.Nameserver.Hostname, failure.Nameserver.String(), failure.Message)
 		}
+	}
+
+	for ns, err := range cr.Errors {
+		fmt.Fprintf(&bs, "\terror: %s (%s): %s\n", ns.Hostname, ns.String(), err)
 	}
 
 	if t.verbose {
