@@ -1,17 +1,27 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 
 	"github.com/blinsay/okaydns"
+	"github.com/fatih/color"
 	"github.com/miekg/dns"
 )
 
 var (
-	verbose = false
+	verbose    = false
+	outputJSON = false
+)
+
+var (
+	text = textFormatter{
+		ok:      color.New(color.FgGreen).SprintFunc(),
+		failure: color.New(color.FgRed).SprintFunc(),
+	}
+
+	formatter checkFormatter = &text
 )
 
 func init() {
@@ -19,8 +29,14 @@ func init() {
 	log.SetFlags(0)
 
 	// cli flags
+	flag.BoolVar(&outputJSON, "json", false, "output check results as JSON")
 	flag.BoolVar(&verbose, "verbose", false, "include verbose check output")
 	flag.Parse()
+
+	if outputJSON {
+		formatter = &jsonFormatter{}
+	}
+	formatter.SetVerbose(verbose)
 }
 
 // TODO(benl): optionally configure the local resolver from the CLI
@@ -41,17 +57,25 @@ func main() {
 			continue
 		}
 
+		bs, err := formatter.FormatHeader(fqdn, nameservers)
+		if err != nil {
+			panic(err)
+		}
+		if bs != nil {
+			log.Print(string(bs))
+		}
+
 		var results []*okaydns.CheckResult
 		for _, check := range defaultChecks {
 			results = append(results, okaydns.DoCheck(&check, fqdn, nameservers))
 		}
 
 		for _, result := range results {
-			bs, err := json.MarshalIndent(asJSONOutput(result, verbose), " ", " ")
+			bs, err := formatter.FormatCheck(result)
 			if err != nil {
 				panic(err)
 			}
-			log.Println(string(bs))
+			log.Print(string(bs))
 		}
 	}
 }
