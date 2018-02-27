@@ -3,6 +3,8 @@ package okaydns
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRandomizeCase(t *testing.T) {
@@ -18,8 +20,6 @@ func TestRandomizeCase(t *testing.T) {
 	for _, tc := range tcs {
 		randomized := RandomizeCase(tc)
 		t.Logf("tc=%q randomized=%q", tc, randomized)
-		if strings.ToLower(tc) != strings.ToLower(randomized) {
-			t.Fatalf("RandomizeCase should not alter the string: before=%q after=%q", tc, randomized)
-		}
+		assert.Equal(t, strings.ToLower(tc), strings.ToLower(randomized), "RandomizeCase should not alter the input string")
 	}
 }
