@@ -10,12 +10,14 @@ some checks against them.
 ```
 $ okdns blinsay.com
 Running checks for blinsay.com. using 2 nameservers:
-	dns1.registrar-servers.com. (udp://216.87.155.33:53)
-	dns2.registrar-servers.com. (udp://216.87.152.33:53)
-A:                             ok
-A (with 0x20 Randomization):   ok
-Unknown question type:         ok
-SOA:                           ok
+	dns1.registrar-servers.com. (216.87.155.33)
+	dns2.registrar-servers.com. (216.87.152.33)
+A record:                                ok
+A record (TCP):                          ok
+Not a CNAME:                             ok
+Handles 0x20 randomization:              ok
+Handles unknown question types:          ok
+SOA serials match:                       ok
 ```
 
 #### Installing

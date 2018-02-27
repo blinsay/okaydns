@@ -1,7 +1,7 @@
 NAME := okdns
 PKG := github.com/blinsay/okaydns
 
-all: clean deps fmt lint vet test build
+all: clean deps fmt lint vet test
 
 .PHONY: deps
 deps:
