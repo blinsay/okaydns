@@ -45,7 +45,7 @@ func (t *textFormatter) FormatCheck(cr *okaydns.CheckResult) ([]byte, error) {
 	if cr.IsFailed() {
 		status = t.failure("failed")
 	}
-	fmt.Fprintf(&bs, "%-30s %s\n", cr.Name+":", status)
+	fmt.Fprintf(&bs, "%-40s %s\n", cr.Name+":", status)
 
 	for _, failure := range cr.Failures {
 		if failure.Nameserver.IsZero() {

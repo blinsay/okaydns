@@ -16,7 +16,7 @@ var defaultChecks = []okaydns.Check{
 // Checks that there is an A record and no CNAME at the given domain. This is a
 // basic sanity check.
 var checkA = okaydns.Check{
-	Name: "A",
+	Name: "Has an A record",
 	Question: func(fqdn string) *dns.Msg {
 		return okaydns.NonRecursiveQuestion(fqdn, dns.TypeA)
 	},
@@ -36,7 +36,7 @@ var checkA = okaydns.Check{
 // See:
 // - https://tools.ietf.org/html/draft-vixie-dnsext-dns0x20-00
 var check0x20 = okaydns.Check{
-	Name: "A (with 0x20 Randomization)",
+	Name: "Handles 0x20 randomization",
 	Question: func(fqdn string) *dns.Msg {
 		return okaydns.NonRecursiveQuestion(okaydns.RandomizeCase(fqdn), dns.TypeA)
 	},
@@ -74,7 +74,7 @@ func validateCaseMatches(q *dns.Msg, replies map[okaydns.Nameserver]*dns.Msg) (f
 // Validates that nameservers respond to a question with an unknown query syntax
 // by returning an empty answer with an okay response code.
 var checkUnknownQuestion = okaydns.Check{
-	Name: "Unknown question type",
+	Name: "Handles unknown question types",
 	Question: func(fqdn string) *dns.Msg {
 		return okaydns.NonRecursiveQuestion(fqdn, typeUnknownQuestion)
 	},
@@ -92,7 +92,7 @@ const typeUnknownQuestion uint16 = 666
 // Validates that nameservers all return authoritative SOA records for this
 // domain and that their serials match.
 var checkSOA = okaydns.Check{
-	Name: "SOA",
+	Name: "SOA serials match",
 	Question: func(fqdn string) *dns.Msg {
 		return okaydns.NonRecursiveQuestion(fqdn, dns.TypeSOA)
 	},
