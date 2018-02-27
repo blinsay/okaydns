@@ -51,4 +51,4 @@ clean:
 .PHONY: install
 install:
 	@echo "+ $@"
-	@go install .
+	go install ./cmd/okdns
