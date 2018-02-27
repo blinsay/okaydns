@@ -16,6 +16,8 @@ func EachNameserver(vs ...okaydns.MessageValidator) okaydns.RequestResponseValid
 			for _, validator := range vs {
 				if nsfailures := validator(answer); len(nsfailures) > 0 {
 					for _, failure := range nsfailures {
+						// this copies Nameserver, so we don't have to worry about the
+						// dreaded range pointer bugs
 						failure.Nameserver = nameserver
 						failures = append(failures, failure)
 					}
