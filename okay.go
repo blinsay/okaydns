@@ -9,7 +9,7 @@ import (
 //
 // Every RequestResponseValidator returns a set of failures caused by individual
 // nameservers and failures caused by considering the resopnses as a group.
-type RequestResponseValidator func(*dns.Msg, map[Nameserver]*dns.Msg) (map[Nameserver][]Failure, []Failure)
+type RequestResponseValidator func(*dns.Msg, map[Nameserver]*dns.Msg) []Failure
 
 // A MessageValidator is a function that examines a single DNS message and
 // returns any problems it's configured to spot.
@@ -33,21 +33,27 @@ type Check struct {
 //
 // Failures are returned per-nameserver and also as a general, global failure.
 type CheckResult struct {
-	Name          string
-	Nameservers   []Nameserver
-	Question      *dns.Msg
-	Answers       map[Nameserver]*dns.Msg
-	Errors        map[Nameserver]error
-	Failures      map[Nameserver][]Failure
-	GroupFailures []Failure
+	Name        string
+	Nameservers []Nameserver
+	Question    *dns.Msg
+	Answers     map[Nameserver]*dns.Msg
+	Errors      map[Nameserver]error
+	Failures    []Failure
 }
 
 // IsFailed returns true if the check failed in any way.
 func (c *CheckResult) IsFailed() bool {
-	return len(c.Failures) > 0 || len(c.GroupFailures) > 0
+	return len(c.Failures) > 0
 }
 
-// A Failure is a reason that a check fails. Failures must be printable.
+// A Failure is a reason that a check fails. They optionally include the
+// nameserver that a failure is associated with. If a failure isn't associated
+// with a specific Nameserver it can be assumed to be applied to the group as
+// a whole.
 type Failure struct {
+	// Message is a string explaining this failure.
 	Message string
+
+	// Nameserver is the (optional) Nameserver that failed this check.
+	Nameserver Nameserver
 }

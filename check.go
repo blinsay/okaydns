@@ -36,18 +36,12 @@ func (d *defaultChecker) Check(config *Check, fqdn string, nameservers []Nameser
 		Name:        config.Name,
 		Nameservers: nameservers,
 		Question:    config.Question(fqdn),
-		Failures:    make(map[Nameserver][]Failure),
 	}
 
 	check.Answers, check.Errors = queryAll(check.Question, check.Nameservers)
 
 	for _, validator := range config.Validators {
-		nsFailures, groupFailures := validator(check.Question, check.Answers)
-
-		for nameserver, failures := range nsFailures {
-			check.Failures[nameserver] = append(check.Failures[nameserver], failures...)
-		}
-		check.GroupFailures = append(check.GroupFailures, groupFailures...)
+		check.Failures = append(check.Failures, validator(check.Question, check.Answers)...)
 	}
 
 	return check

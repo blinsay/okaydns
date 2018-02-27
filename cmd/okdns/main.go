@@ -10,17 +10,21 @@ import (
 	"github.com/miekg/dns"
 )
 
+var (
+	verbose = false
+)
+
 func init() {
 	// logging
 	log.SetFlags(0)
 
 	// cli flags
+	flag.BoolVar(&verbose, "verbose", false, "include verbose check output")
 	flag.Parse()
 }
 
 // TODO(benl): optionally configure the local resolver from the CLI
 // TODO(benl): non-json output
-// TODO(benl): less verbose output
 // TODO(benl): include IPv6 support
 
 func main() {
@@ -43,7 +47,7 @@ func main() {
 		}
 
 		for _, result := range results {
-			bs, err := json.MarshalIndent(asJSONOutput(result), " ", " ")
+			bs, err := json.MarshalIndent(asJSONOutput(result, verbose), " ", " ")
 			if err != nil {
 				panic(err)
 			}

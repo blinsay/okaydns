@@ -11,18 +11,19 @@ import (
 // MessageValidators for each request-response pair. Failures are grouped by
 // nameserver.
 func EachNameserver(vs ...okaydns.MessageValidator) okaydns.RequestResponseValidator {
-	return func(_ *dns.Msg, answers map[okaydns.Nameserver]*dns.Msg) (map[okaydns.Nameserver][]okaydns.Failure, []okaydns.Failure) {
-		failures := make(map[okaydns.Nameserver][]okaydns.Failure)
-
+	return func(_ *dns.Msg, answers map[okaydns.Nameserver]*dns.Msg) (failures []okaydns.Failure) {
 		for nameserver, answer := range answers {
 			for _, validator := range vs {
-				if failure := validator(answer); failure != nil {
-					failures[nameserver] = append(failures[nameserver], failure...)
+				if nsfailures := validator(answer); len(nsfailures) > 0 {
+					for _, failure := range nsfailures {
+						failure.Nameserver = nameserver
+						failures = append(failures, failure)
+					}
 				}
 			}
 		}
 
-		return failures, nil
+		return failures
 	}
 }
 
