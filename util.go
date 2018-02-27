@@ -15,16 +15,20 @@ import (
 func RandomizeCase(s string) string {
 	s = strings.ToLower(s)
 
-	var runes []rune
-	for _, runeVal := range s {
-		if rand.Float32() > 0.5 {
-			runeVal = unicode.ToUpper(runeVal)
-		} else {
-			runeVal = unicode.ToLower(runeVal)
+	for {
+		var runes []rune
+		for _, runeVal := range s {
+			if rand.Float32() > 0.5 {
+				runeVal = unicode.ToUpper(runeVal)
+			} else {
+				runeVal = unicode.ToLower(runeVal)
+			}
+			runes = append(runes, runeVal)
 		}
-		runes = append(runes, runeVal)
+		if newStr := string(runes); newStr != s {
+			return newStr
+		}
 	}
-	return string(runes)
 }
 
 // NonRecursiveQuestion is a util function for constructing a non-recursive

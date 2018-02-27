@@ -20,6 +20,7 @@ func TestRandomizeCase(t *testing.T) {
 	for _, tc := range tcs {
 		randomized := RandomizeCase(tc)
 		t.Logf("tc=%q randomized=%q", tc, randomized)
+		assert.NotEqual(t, tc, randomized, "RandomizeCase should never return the input string unaltered")
 		assert.Equal(t, strings.ToLower(tc), strings.ToLower(randomized), "RandomizeCase should not alter the input string")
 	}
 }
