@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 
 	"github.com/blinsay/okaydns"
 	"github.com/fatih/color"
@@ -17,6 +18,9 @@ var (
 )
 
 var (
+	filterPattern = ""
+	filterRe      *regexp.Regexp
+
 	text = textFormatter{
 		ok:      color.New(color.FgGreen).SprintFunc(),
 		failure: color.New(color.FgRed).SprintFunc(),
@@ -30,8 +34,6 @@ func init() {
 	log.SetFlags(0)
 
 	// cli flags
-	flag.BoolVar(&outputJSON, "json", false, "output check results as JSON")
-	flag.BoolVar(&verbose, "verbose", false, "include verbose check output")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [output flags] [domains]\n\n", os.Args[0])
 		fmt.Fprintf(flag.CommandLine.Output(), "okdns is a tool for checking to see if your dns is ok. checks are run\n")
@@ -39,7 +41,19 @@ func init() {
 		fmt.Fprintf(flag.CommandLine.Output(), "available options:\n")
 		flag.PrintDefaults()
 	}
+
+	flag.BoolVar(&outputJSON, "json", false, "output check results as JSON")
+	flag.BoolVar(&verbose, "verbose", false, "include verbose check output")
+	flag.StringVar(&filterPattern, "check", "", "only run checks that match the given `pattern`")
 	flag.Parse()
+
+	if filterPattern != "" {
+		re, err := regexp.Compile(filterPattern)
+		if err != nil {
+			log.Fatalf("error: illegal check pattern")
+		}
+		filterRe = re
+	}
 
 	if outputJSON {
 		formatter = &jsonFormatter{}
@@ -58,6 +72,13 @@ func main() {
 		log.Fatalf("failed to start: %s", err)
 	}
 
+	var checks []okaydns.Check
+	for _, check := range defaultChecks {
+		if filterRe == nil || filterRe.MatchString(check.Name) {
+			checks = append(checks, check)
+		}
+	}
+
 	for _, domain := range flag.Args() {
 		fqdn := dns.Fqdn(domain)
 		nameservers, err := okaydns.AuthoritativeNameservers(fqdn, seedns, false)
@@ -71,7 +92,7 @@ func main() {
 			continue
 		}
 
-		bs, err := formatter.FormatHeader(fqdn, nameservers)
+		bs, err := formatter.FormatHeader(fqdn, checks, nameservers)
 		if err != nil {
 			panic(err)
 		}
@@ -80,7 +101,7 @@ func main() {
 		}
 
 		var results []*okaydns.CheckResult
-		for _, check := range defaultChecks {
+		for _, check := range checks {
 			results = append(results, okaydns.DoCheck(&check, fqdn, nameservers))
 		}
 

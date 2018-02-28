@@ -10,7 +10,7 @@ import (
 
 type checkFormatter interface {
 	SetVerbose(bool)
-	FormatHeader(fqdn string, nameservers []okaydns.Nameserver) ([]byte, error)
+	FormatHeader(fqdn string, checks []okaydns.Check, nameservers []okaydns.Nameserver) ([]byte, error)
 	FormatCheck(cr *okaydns.CheckResult) ([]byte, error)
 }
 
@@ -26,10 +26,10 @@ func (t *textFormatter) SetVerbose(v bool) {
 	t.verbose = v
 }
 
-func (t *textFormatter) FormatHeader(fqdn string, nameservers []okaydns.Nameserver) ([]byte, error) {
+func (t *textFormatter) FormatHeader(fqdn string, checks []okaydns.Check, nameservers []okaydns.Nameserver) ([]byte, error) {
 	var bs bytes.Buffer
 
-	fmt.Fprintf(&bs, "Running checks for %s using %d nameservers:\n", fqdn, len(nameservers))
+	fmt.Fprintf(&bs, "Running %d checks for %s using %d nameservers:\n", len(checks), fqdn, len(nameservers))
 
 	for _, nameserver := range nameservers {
 		fmt.Fprintf(&bs, "\t%s (%s)\n", nameserver.Hostname, nameserver.IP)
@@ -80,7 +80,7 @@ func (j *jsonFormatter) SetVerbose(v bool) {
 	j.verbose = v
 }
 
-func (j *jsonFormatter) FormatHeader(fqdn string, nameservers []okaydns.Nameserver) ([]byte, error) {
+func (j *jsonFormatter) FormatHeader(_ string, _ []okaydns.Check, _ []okaydns.Nameserver) ([]byte, error) {
 	// returns nil, since json checks are meant to be parsed individually and don't
 	// need a header
 	return nil, nil
