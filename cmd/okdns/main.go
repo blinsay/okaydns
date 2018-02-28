@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/blinsay/okaydns"
 	"github.com/fatih/color"
@@ -31,6 +32,13 @@ func init() {
 	// cli flags
 	flag.BoolVar(&outputJSON, "json", false, "output check results as JSON")
 	flag.BoolVar(&verbose, "verbose", false, "include verbose check output")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [output flags] [domains]\n\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "okdns is a tool for checking to see if your dns is ok. checks are run\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "against every authoritative nameserver for every domain listed.\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "available options:\n")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if outputJSON {
