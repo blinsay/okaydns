@@ -76,7 +76,7 @@ func AuthoritativeNameservers(fqdn string, ns Nameserver, includeIPv6 bool) (fou
 	}
 
 	for _, hostname := range nsHostnames {
-		ips, err := lookupIps(ns, hostname, includeIPv6)
+		ips, err := LookupIPs(ns, hostname, includeIPv6)
 		if err != nil {
 			return nil, err
 		}
@@ -117,9 +117,10 @@ func lookupNs(localNameserver Nameserver, fqdn string) ([]string, error) {
 	return nservers, nil
 }
 
-// ips runs recurse A and AAAA queries against a given resolver and returns all
-// of the ip addresses returned in the answer sections of both queries
-func lookupIps(localNameserver Nameserver, fqdn string, v6 bool) ([]net.IP, error) {
+// LookupIPs runs a recursive A query against the given resolver and returns all
+// of the ip addresses returned in the answer section. If v6 is true, also runs
+// a recursive AAAA query and includes those IPs in the response.
+func LookupIPs(localNameserver Nameserver, fqdn string, v6 bool) ([]net.IP, error) {
 	client := &dns.Client{Net: localNameserver.Proto.String()}
 
 	aReply, _, err := client.Exchange(new(dns.Msg).SetQuestion(fqdn, dns.TypeA), localNameserver.Address())

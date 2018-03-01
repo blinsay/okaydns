@@ -4,12 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/blinsay/okaydns"
 	"github.com/fatih/color"
 	"github.com/miekg/dns"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -17,9 +20,16 @@ var (
 	outputJSON = false
 )
 
+type nameserverList []string
+
+func (n *nameserverList) String() string     { return strings.Join(*n, ",") }
+func (n *nameserverList) Set(v string) error { *n = append(*n, v); return nil }
+
 var (
 	filterPattern = ""
 	filterRe      *regexp.Regexp
+
+	targetNameservers nameserverList
 
 	text = textFormatter{
 		ok:      color.New(color.FgGreen).SprintFunc(),
@@ -37,7 +47,9 @@ func init() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [output flags] [domains]\n\n", os.Args[0])
 		fmt.Fprintf(flag.CommandLine.Output(), "okdns is a tool for checking to see if your dns is ok. checks are run\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "against every authoritative nameserver for every domain listed.\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "against every domain listed. unless otherwise specified with the -ns\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "option, the local resolver is queried for the authoritative nameservers\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "for the domains specified, and checks are run against those.\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "available options:\n")
 		flag.PrintDefaults()
 	}
@@ -45,6 +57,7 @@ func init() {
 	flag.BoolVar(&outputJSON, "json", false, "output check results as JSON")
 	flag.BoolVar(&verbose, "verbose", false, "include verbose check output")
 	flag.StringVar(&filterPattern, "check", "", "only run checks that match the given `pattern`")
+	flag.Var(&targetNameservers, "ns", "a `nameserver` to check explicitly. may be specified multiple times.")
 	flag.Parse()
 
 	if filterPattern != "" {
@@ -69,7 +82,7 @@ func init() {
 func main() {
 	seedns, err := configuredNameserver("/etc/resolv.conf")
 	if err != nil {
-		log.Fatalf("failed to start: %s", err)
+		log.Fatalln("error loading local nameserver info from /etc/resolv.conf:", err)
 	}
 
 	var checks []okaydns.Check
@@ -81,15 +94,10 @@ func main() {
 
 	for _, domain := range flag.Args() {
 		fqdn := dns.Fqdn(domain)
-		nameservers, err := okaydns.AuthoritativeNameservers(fqdn, seedns, false)
-		if err != nil {
-			log.Printf("failed to look up authoritative nameservers for %s: %s", domain, err)
-			continue
-		}
 
-		if len(nameservers) == 0 {
-			log.Printf("no nameservers found for %s", domain)
-			continue
+		nameservers, err := findNameservers(seedns, fqdn, targetNameservers)
+		if err != nil {
+			log.Fatalln(err)
 		}
 
 		bs, err := formatter.FormatHeader(fqdn, checks, nameservers)
@@ -113,6 +121,54 @@ func main() {
 			log.Print(string(bs))
 		}
 	}
+}
+
+func findNameservers(seedns okaydns.Nameserver, fqdn string, configured []string) ([]okaydns.Nameserver, error) {
+	if len(configured) > 0 {
+		return explicitNameservers(seedns, configured)
+	}
+	return authoritativeNameservers(seedns, fqdn)
+}
+
+func explicitNameservers(seedns okaydns.Nameserver, configured []string) ([]okaydns.Nameserver, error) {
+	var nameservers []okaydns.Nameserver
+
+	for _, s := range configured {
+		host, port, err := net.SplitHostPort(s)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid nameserver specified")
+		}
+
+		ips, err := okaydns.LookupIPs(seedns, dns.Fqdn(host), false)
+		if err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("error looking up ip for %s", host))
+		}
+
+		for _, ip := range ips {
+			nameservers = append(nameservers, okaydns.Nameserver{
+				Hostname: host,
+				IP:       ip.String(),
+				Port:     port,
+				Proto:    okaydns.ProtoTCP,
+			})
+		}
+
+	}
+
+	return nameservers, nil
+}
+
+// do an NS lookup on the fqdn and return the hostnames and IPs of those
+// nameservers.
+func authoritativeNameservers(seedns okaydns.Nameserver, fqdn string) ([]okaydns.Nameserver, error) {
+	nameservers, err := okaydns.AuthoritativeNameservers(fqdn, seedns, false)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("looking up authoritative nameservers for %s", fqdn))
+	}
+	if len(nameservers) == 0 {
+		return nil, fmt.Errorf("no nameservers found for %s", fqdn)
+	}
+	return nameservers, nil
 }
 
 // return the first nameserver listed in filename, which must be a resolv.conf(5)
